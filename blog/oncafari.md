@@ -1,5 +1,5 @@
 ---
-title: Sorting 200,000 Camera Trap Videos for Onçafari
+title: Automatic Trail Camera Categorization, Onçafari Bushmen
 date: 2026-11-15
 summary: A detection and classification pipeline for camera trap video, from an 18% first model to 99.5% accuracy at one video per second, and the deployment that got biologists to actually use it.
 style: oncafari.css
@@ -9,7 +9,7 @@ style: oncafari.css
 
 Since 2022 I've led machine learning research at [Onçafari](https://oncafari.org), Latin America's largest animal conservation NGO, together with [Felipe Barbosa](https://felipebarbosa.co) and, from 2023, [Rafael Souza](https://rafaelsouza.io).
 
-The goal is simple to state: given a 30 second camera trap video, say whether there's an animal in it and, if so, which one, fast enough to keep up with the field. Today our pipeline does this at **99.5% per-video accuracy** in about **one second per video**.
+Given a 30 second camera trap video, we want to be able to quickly state whether there's an animal in it and, if so, what animal. Today our pipeline does this at **99.5% per-video accuracy** in about **one second per video**.
 
 This post covers two things: how we got the model there, and how we got the biologists to actually use it. The second turned out to be just as hard as the first.
 
@@ -27,7 +27,7 @@ We started with 500 labeled videos split evenly across five classes: `jaguar`, `
 
 Our first model was a dense neural network that looked at single frames, with every frame labeled with its clip's class. It scored **18%**, worse than the 20% you'd get by guessing at random.
 
-Three things were wrong:
+We realized that we had three problems:
 
 1. **Bad labels.** About 5% of the videos were mislabeled.
 2. **Bad frame labels.** The animal is only on screen for a few seconds, so most frames in a "jaguar" clip don't contain a jaguar. We were teaching the model that empty grass is a jaguar.
