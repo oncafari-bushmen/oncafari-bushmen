@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sorting 200,000 Camera Trap Videos for Onçafari</title>
+<meta name="description" content="A detection and classification pipeline for camera trap video, from an 18% first model to 99.5% accuracy at one video per second, and the deployment that got biologists to actually use it.">
+<meta property="og:title" content="Sorting 200,000 Camera Trap Videos for Onçafari">
+<meta property="og:description" content="A detection and classification pipeline for camera trap video, from an 18% first model to 99.5% accuracy at one video per second, and the deployment that got biologists to actually use it.">
+<meta property="og:image" content="assets/jaguar-detection.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+:root { color-scheme: dark; --bg:#0a0a0a; --text:#eeeeee; --muted:#969696; --line:#2c2c2c; --mono:"IBM Plex Mono",monospace; --sans:"DM Sans",Arial,sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px var(--sans); -webkit-font-smoothing: antialiased; }
+a { color: inherit; }
+main { max-width: 760px; margin: 0 auto; padding: 64px 16px 96px; }
+h1 { margin: 0 0 8px; font-size: 34px; font-weight: 500; letter-spacing: -0.8px; line-height: 1.2; }
+.post-date { display: block; margin-bottom: 32px; color: var(--muted); font: 400 12px var(--mono); }
+.post-body { font-size: 16px; line-height: 1.8; overflow-wrap: break-word; }
+.post-body h2, .post-body h3 { margin: 2em 0 0.6em; font-weight: 500; letter-spacing: -0.4px; line-height: 1.3; }
+.post-body h2 { font-size: 22px; }
+.post-body h3 { font-size: 18px; }
+.post-body p, .post-body ul, .post-body ol { margin: 0 0 1.2em; color: #d6d6d6; }
+.post-body a { text-decoration: underline; text-underline-offset: 4px; }
+.post-body a:hover { color: #dc6b9b; }
+.post-body code { padding: 2px 5px; border-radius: 4px; background: #ffffff0d; font: 0.88em var(--mono); }
+.post-body img { max-width: 100%; height: auto; border-radius: 10px; }
+@media (max-width: 640px) { main { padding-top: 40px; } h1 { font-size: 28px; } }
+/* Styles for the Onçafari post: just the table, captions and the phone shot. */
+.post-body img + em,
+.post-body p > em:only-child {
+  display: block;
+  margin-top: -0.4em;
+  color: var(--muted);
+  font-size: 13px;
+  font-style: normal;
+  line-height: 1.55;
+}
+.post-body table {
+  width: 100%;
+  margin: 0 0 1.6em;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.post-body th,
+.post-body td {
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--line);
+  color: #d6d6d6;
+  text-align: left;
+  vertical-align: top;
+}
+.post-body th {
+  color: var(--muted);
+  font-weight: 450;
+}
+.post-body td:last-child,
+.post-body th:last-child {
+  padding-right: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+.post-body img.oc-phone {
+  display: block;
+  width: 260px;
+  margin: 0 auto 1.2em;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+</style>
+</head>
+<body>
+<main>
+<h1>Sorting 200,000 Camera Trap Videos for Onçafari</h1>
+<time class="post-date" datetime="2026-11-15">Nov 15, 2026</time>
+<article class="post-body">
+<p><img src="assets/jaguar-detection.webp" alt="Camera trap frame of a jaguar with a detection box"></p>
+<p>Since 2022 I&#39;ve led machine learning research at <a href="https://oncafari.org">Onçafari</a>, Latin America&#39;s largest animal conservation NGO, together with <a href="https://felipebarbosa.co">Felipe Barbosa</a> and, from 2023, <a href="https://rafaelsouza.io">Rafael Souza</a>.</p>
+<p>The goal is simple to state: given a 30 second camera trap video, say whether there&#39;s an animal in it and, if so, which one, fast enough to keep up with the field. Today our pipeline does this at <strong>99.5% per-video accuracy</strong> in about <strong>one second per video</strong>.</p>
+<p>This post covers two things: how we got the model there, and how we got the biologists to actually use it. The second turned out to be just as hard as the first.</p>
+<h2>The problem</h2>
+<p>Onçafari runs 17 bases covering about <strong>2 million hectares</strong>, watched by roughly <strong>350 camera traps</strong>. A camera trap is a motion-activated camera strapped to a tree. Every 15 days someone swaps its memory card, which holds 250 to 1,000 videos. Biologists use that footage for population studies, tracking individual animals, surveys of rare species and published papers.</p>
+<p>The catch is that most clips are false triggers: wind, a change in light, a falling leaf. Someone still has to watch every one to find the real ones. That added up to more than <strong>6,000 hours of manual review a year</strong>.</p>
+<h2>Part 1: the model</h2>
+<h3>2022: from 18% to 86%</h3>
+<p>We started with 500 labeled videos split evenly across five classes: <code>jaguar</code>, <code>anteater</code>, <code>puma</code>, <code>ocelot</code> and <code>other</code>. Each clip is 30 seconds at 24 fps, so 720 frames.</p>
+<p>Our first model was a dense neural network that looked at single frames, with every frame labeled with its clip&#39;s class. It scored <strong>18%</strong>, worse than the 20% you&#39;d get by guessing at random.</p>
+<p>Three things were wrong:</p>
+<ol>
+<li><strong>Bad labels.</strong> About 5% of the videos were mislabeled.</li>
+<li><strong>Bad frame labels.</strong> The animal is only on screen for a few seconds, so most frames in a &quot;jaguar&quot; clip don&#39;t contain a jaguar. We were teaching the model that empty grass is a jaguar.</li>
+<li><strong>Too little data.</strong> 100 videos per class isn&#39;t much.</li>
+</ol>
+<p>We relabeled all 500 videos by hand. To fix the frame problem without marking timestamps, we used a property of camera traps: the animal is what triggers the recording, so it&#39;s almost always on screen near the start. We sampled training frames with a weight that decays over the clip, so most of them come from the first few seconds. Flips and color shifts then turned 500 videos into about 8,000 training examples. After eight hours of training on a home PC, the model reached <strong>86%</strong>.</p>
+<p><img src="assets/oncafari/first-iteration.webp" alt="Terminal output from the 86% model: rows of per-class confidences, with the top class in green"></p>
+<p><em>The 86% model&#39;s output. Each row is one prediction, with the top class in green.</em></p>
+<p>That result got us <strong>200,000 videos</strong> from Onçafari&#39;s archive (about 1,700 hours of footage), and brought Rafael Souza, then at Google, on as a mentor. That&#39;s only a slice of everything Onçafari has recorded, but it was more than enough to train on. And it came already labeled: years of the team&#39;s manual review had tagged every video with what was in it.</p>
+<h3>2023: scaling up</h3>
+<p>We moved training to Google Cloud (Vertex AI) and trained the same five-class model on those 200,000 videos. Accuracy dropped to <strong>80%</strong>. The real data was much messier than our hand-picked 500: unbalanced, noisier, and full of species we hadn&#39;t planned for.</p>
+<p>So we split the problem in two:</p>
+<ul>
+<li>a <strong>detector</strong> that finds whether there&#39;s an animal and where it is, and</li>
+<li>a <strong>classifier</strong> that looks only at that cropped region and decides the species.</li>
+</ul>
+<p>We first tried off-the-shelf detectors, <a href="https://docs.ultralytics.com">YOLO</a> and <a href="https://github.com/agentmorris/MegaDetector">MegaDetector</a>. Both struggled with partly hidden animals, which in the Pantanal is most of them: half behind grass, lit only by infrared at night, or small at the edge of the frame. So we trained our own detector and classifier on Onçafari&#39;s footage, which reached <strong>95–98% accuracy per class</strong>.</p>
+<p><img src="assets/oncafari/image.png" alt="Confusion matrix of our own classifier, with 95–98% on the diagonal for every class"></p>
+<p>The remaining problem was the <code>other</code> class. Peccaries, caimans, birds and cattle all landed there, and someone still had to sort that pile by hand.</p>
+<h3>What didn&#39;t work</h3>
+<p>We also tried detecting motion directly. Background subtraction (OpenCV&#39;s MOG2) flags pixels that change between frames and draws boxes around them. On our footage the background moved more than the animals did: wind turned whole treelines into &quot;motion,&quot; and swaying grass got boxed as animals. Transformer-based video models ran into the same noise.</p>
+<p><img src="assets/oncafari/frames/subtraction-wind.webp" alt="Background subtraction on a daytime clip: original, foreground mask, and a dozen false detections"></p>
+<p><em>Background subtraction on one of our clips: original, motion mask, detections. Wind alone produces a dozen false boxes.</em></p>
+<h3>2025: SpeciesNet, applied to video</h3>
+<p>By 2025 there was a better starting point than our own models: <a href="https://github.com/google/cameratrapai">SpeciesNet</a>, Google&#39;s open-source camera trap model, pretrained on millions of images. It covers far more species than our original four, so we customized it for every animal found in the Pantanal, from tapirs and maned wolves to caimans and cattle. That finally emptied the <code>other</code> bucket.</p>
+<p>SpeciesNet works on single images, and its detector is MegaDetector, the same one that missed hidden animals in 2023. Run frame by frame, it still does. In the clip below it only finds the animal in 16 of 61 frames, and its best box has 0.46 confidence.</p>
+<p><img src="assets/oncafari/frames/megadetector-box.webp" alt="Night infrared frame: an animal partly hidden in tall grass, with one MegaDetector box labeled animal 0.46"></p>
+<p><em>MegaDetector on a partly hidden animal. It found it in 16 of 61 sampled frames.</em></p>
+<p>Our fix was to stop judging single frames. For each video we run detection on <strong>30 of its 720 frames</strong>, classify each detected crop, and combine those predictions into one label for the whole video. The animal only needs to be found in some frames, not all of them. When no species is confident enough, the label falls back to the genus or family instead of guessing.</p>
+<p>That runs at about <strong>one second per video</strong> on a single T4 GPU, so all 200,000 videos take about 56 GPU-hours.</p>
+<p>To measure accuracy we used new footage from recent field campaigns, which the model had never seen in training. The team sorted each campaign by hand as usual, we ran the model on the same videos, and we compared the two. The model agreed with the hand labels on <strong>99.5% of videos</strong>, and that number has held across many campaigns. Even part of the remaining 0.5% wasn&#39;t the model&#39;s fault: when we looked at disagreements, the hand label was sometimes the wrong one. People get tired after hours of watching grass move.</p>
+<h3>Summary</h3>
+<table>
+<thead>
+<tr>
+<th>Year</th>
+<th>Approach</th>
+<th>Accuracy</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>2022</td>
+<td>Single-frame CNN, 500 videos</td>
+<td>18%</td>
+</tr>
+<tr>
+<td>2022</td>
+<td>+ clean labels, early-frame sampling, augmentation</td>
+<td>86%</td>
+</tr>
+<tr>
+<td>2023</td>
+<td>Same model, 200k videos</td>
+<td>80%</td>
+</tr>
+<tr>
+<td>2023</td>
+<td>Own detector + classifier</td>
+<td>95–98% per class</td>
+</tr>
+<tr>
+<td>2025</td>
+<td>Customized SpeciesNet over 30 frames per video</td>
+<td>99.5% per video</td>
+</tr>
+</tbody></table>
+<h2>Part 2: getting it used</h2>
+<h3>The ResourceSpace version (2023)</h3>
+<p>Our first deployment ran the classifier in the cloud and put the sorted videos into <a href="https://www.resourcespace.com">ResourceSpace</a>, an open-source media library, so the team could browse them. We piloted it at the Caiman base, which has 97 cameras over 53,000 hectares.</p>
+<p><img src="assets/oncafari/explaining-lili.png" alt="Walking Liliam Rampim, head of the Caiman base, through the results"></p>
+<h3>Tracking the cameras (2024)</h3>
+<p>Not every problem was a model problem. Cameras, batteries and memory cards were tracked on paper, and a camera logged with the wrong coordinates was as good as lost. So we built an <a href="https://about.appsheet.com">AppSheet</a> app on top of Onçafari&#39;s Google Sheets that keeps every camera&#39;s location, maintenance history and status in one place.</p>
+<img class="oc-phone" src="assets/oncafari/appsheet-map.webp" alt="The camera tracking app on a phone: a satellite map with a pin for each camera trap" width="738" height="1450" loading="lazy">
+
+<h3>The local version (2025)</h3>
+<p>On a trip to the Pantanal I found out the team wasn&#39;t really using the ResourceSpace version. On paper, the complaints were about the model: a mislabeled clip here, a missed animal there. They were small issues, and the kind we had been fixing all along. Watching people work, though, I saw the real reason. Their analysis lives in spreadsheets, and getting results out of ResourceSpace meant copying them over by hand, which took long enough to cancel out the time the model saved. The model&#39;s mistakes were an easy reason to give for not using it. We hadn&#39;t removed the bottleneck, just moved it.</p>
+<p>Looking back, the ResourceSpace version was also me learning about the wonders of scope creep. We wanted a flashy solution: a full platform with a media library, previews and search. What the team actually needed was much less: their videos, sorted, in the folders they already used. People won&#39;t switch to a tool that&#39;s better in theory if it makes their day more annoying. It has to fit how they already work.</p>
+<p>So over a weekend I built our first real app: a small desktop program (Rust, using Tauri) that runs locally on the biologists&#39; own laptops. They copy a memory card into a <code>/raw/</code> folder as usual. The app uploads the videos to Cloud Storage, gets predictions from a GPU-backed Cloud Run function, and moves each video into <code>/categorized/&lt;species&gt;/</code> in the same folders they already work in. There&#39;s no new tool to learn and no export step. This is the version the team has used since May 2026, and the complaints about the model stopped.</p>
+<p><img src="assets/oncafari/current-arch.jpg" alt="Architecture of the local version: a Rust Tauri client on the local machine uploads files to a Google Cloud Storage bucket, then calls a Cloud Run function with GPU acceleration that runs detection then classification, and sorts files from /raw/ into /categorized/species_name/"></p>
+<h2>Results</h2>
+<p>The biologists no longer check the footage by hand. They trust the model&#39;s sorting and go straight to the species folders they need. At Caiman alone that&#39;s about <strong>500 hours a month</strong> of review handed back, time they can now spend in the field.</p>
+<h2>What&#39;s next</h2>
+<p>Sharing the pipeline with other ecology groups so they don&#39;t have to start from scratch and embedding models directly into the cameras!</p>
+<h2>In the news</h2>
+<p><a href="https://ssir.com.br/ia-brasileira-acelera-conservacao-ambiental/" title="Stanford Social Innovation Review Brasil, Jul 2025. The full story, from 500 videos to the platform running at Caiman.">IA brasileira acelera conservação ambiental</a></p>
+<p><a href="https://g1.globo.com/sp/campinas-regiao/terra-da-gente/noticia/2024/06/13/conservacao-e-tecnologia-entenda-como-ia-pode-ser-aliada-no-monitoramento-de-fauna.ghtml" title="G1 Terra da Gente, Jun 2024. The Bushmen AI pilot at Caiman Pantanal.">ONG utiliza IA como aliada no monitoramento de fauna do Pantanal</a></p>
+<p><a href="https://www.estadao.com.br/sustentabilidade/de-bbb-de-oncas-a-semaforo-antipoluicao-inteligencia-artificial-pode-frear-crise-climatica/" title="Estadão, Jun 2023. AI projects for the climate and conservation, including Onçafari.">De &#39;BBB&#39; de onças a semáforo antipoluição: inteligência artificial pode frear crise climática?</a></p>
+<p><a href="https://blog.google/intl/pt-br/produtos/nas-nuvens/como-a-nuvem-esta-ajudando-a-monitorar-e-preservar-a-amazonia/" title="Google Brasil blog, Apr 2023. Onçafari using Vertex AI for species identification and AppSheet for camera traps.">Como a nuvem está ajudando a monitorar e preservar a Amazônia</a></p>
+<h2>Team</h2>
+<p><strong>Onçafari Bushmen</strong></p>
+<ul>
+<li>João Barbosa</li>
+<li>Felipe Barbosa</li>
+<li>Rafael Souza</li>
+</ul>
+<p><strong>Onçafari</strong></p>
+<ul>
+<li>Mario Haberfeld — CEO</li>
+<li>Liliam Rampim — Caiman Chief</li>
+<li>Rafael Del Prete — Biologist</li>
+</ul>
+
+</article>
+</main>
+</body>
+</html>
