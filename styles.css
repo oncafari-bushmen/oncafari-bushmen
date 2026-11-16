@@ -1,0 +1,1487 @@
+
+:root {
+  color-scheme: dark;
+  --bg: #0a0a0a;
+  --hero: #ffffff05;
+  --text: #eeeeee;
+  --muted: #969696;
+  --line: #2c2c2c;
+  --detect: #96f45f;
+  --mono: "IBM Plex Mono", monospace;
+  --sans: "DM Sans", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+  /* No rubberbanding past the top or bottom of the page. */
+  overscroll-behavior: none;
+}
+body {
+  position: relative;
+  margin: 0;
+  overscroll-behavior: none;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+button {
+  font: inherit;
+  color: inherit;
+}
+a,
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  cursor: pointer;
+}
+a:focus-visible,
+button:focus-visible,
+canvas:focus-visible {
+  outline: 1px solid var(--text);
+  outline-offset: 6px;
+}
+::selection {
+  background: #d0d0d0;
+  color: var(--bg);
+}
+.skip-link {
+  position: absolute;
+  top: -60px;
+  left: 30px;
+  padding: 12px;
+  background: var(--text);
+  color: var(--bg);
+  z-index: 5;
+}
+.skip-link:focus {
+  top: 12px;
+}
+
+/* Host for the paper texture shader; spans the document and scrolls with it. */
+#paper-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.hero {
+  position: relative;
+  isolation: isolate;
+  max-width: 1600px;
+  margin: 0 24px;
+  padding: 0 max(36px, calc((100% - 1080px) / 2));
+  background: var(--hero);
+  border-radius: 0 0 76px 76px;
+  overflow: hidden;
+}
+/* The hiking photo, dithered, filling the hero. The overhangs are the room the
+   resting offset and the upward parallax drift travel into; without them the
+   hero background would show through past the photo's edges. */
+.hero .hero-photo {
+  --hero-rest-offset: 250px;
+  position: absolute;
+  top: -280px;
+  right: 0;
+  bottom: -40px;
+  left: 0;
+  z-index: 0;
+  /* Establish the final resting crop before deferred JavaScript runs. */
+  transform: translateY(var(--hero-rest-offset));
+  will-change: transform;
+}
+/* Two classes deliberately: `.dither img` below sets `height: auto` and would
+   win on source order at equal specificity, leaving the photo short of the
+   hero's box wherever the box is taller than its own aspect ratio. */
+.hero .hero-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 35%;
+}
+/* Keeps the copy readable wherever the photo happens to be bright. An even
+   scrim rather than a directional one, so no edge reads as darker. */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #0a0a0aa6;
+}
+.hero-content {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 65px;
+  align-items: center;
+  min-height: 460px;
+  padding: 80px 0;
+}
+.greeting {
+  margin: 0 0 20px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(44px, 5vw, 64px);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -2px;
+}
+.studies {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: -0.5px;
+}
+/* `<picture>` only exists to pick a format; taking its box out of the layout
+   keeps the `<img>` sizing against the frame exactly as it did without it. */
+picture {
+  display: contents;
+}
+.dither {
+  position: relative;
+  isolation: isolate;
+}
+/* The shader library ships these rules inside a cascade layer, which loses to
+   almost anything. Repeat them unlayered: a canvas left in normal flow would
+   push the page's content around. */
+#paper-bg canvas {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+.dither img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+main {
+  max-width: 1080px;
+  width: calc(100% - 144px);
+  margin: 0 auto;
+}
+.work {
+  padding: 65px 0;
+}
+.featured-project {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 62px;
+  align-items: center;
+}
+/* Touch has no hover, so the reveal gets a button instead; hidden wherever a
+   pointer can do the job. Positioned inside the frame's top-left corner. */
+.detect-toggle {
+  display: none;
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  padding: 12px 21px 13px;
+  /* Outline only, in the detection's own colour, so the button reads as part of
+     the model's output rather than as chrome. */
+  border: 1px solid var(--detect);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--detect);
+  font: 500 13px/1 var(--mono);
+  letter-spacing: 0.02em;
+  /* Show-then-hide is two quick taps in the same spot, which a touch browser
+     reads as double-tap-to-zoom. `manipulation` opts this button out of that
+     gesture while leaving the page's own panning and pinch-zoom alone. */
+  touch-action: manipulation;
+}
+/* Filled while the detection is up, matching the label on the box itself, so
+   the button reads as on rather than as another thing to press. Keyed off the
+   same attribute the script already maintains. */
+.detect-toggle[aria-pressed="true"] {
+  background: var(--detect);
+  color: #0a0a0a;
+}
+/* What the button drives; the hover rules below do the same job for pointers. */
+.project-images.is-detected .detection,
+.project-images.is-detected .image-note {
+  opacity: 1;
+  transform: none;
+}
+/* Anchor for the hover hint, which hangs outside the frame. */
+.project-images {
+  position: relative;
+}
+/* A nudge that the frame does something on hover. Absolute and off to the
+   left, so it never takes part in the layout, and it steps aside once the
+   hover it was asking for actually happens. */
+.hover-hint {
+  position: absolute;
+  top: -6px;
+  left: -26px;
+  width: 24px;
+  height: auto;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.7;
+  animation: hover-hint-drift 2.6s ease-in-out infinite;
+  transition: opacity 0.25s ease;
+}
+.project-images:hover .hover-hint,
+.project-images:focus-within .hover-hint {
+  opacity: 0;
+}
+@keyframes hover-hint-drift {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(4px, -3px);
+  }
+}
+/* The overlays measure this box, not `.project-images`: on a phone the button
+   below the photo takes up flow space there, and anchoring to the wrapper would
+   drag the caption down with it. */
+.project-frame {
+  position: relative;
+}
+/* The frame's edge is an inset shadow rather than a border: a border would
+   shrink the padding box the detection sits in, while the caption outside the
+   frame measures the full box, and the two percentage offsets would then miss
+   each other by a pixel at some widths. */
+.project-images .dither {
+  box-shadow: inset 0 0 0 1px var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+/* Hovering the frame runs the model on it, more or less: a detection box lands
+   on the jaguar, labelled like the pipeline's own output, and the explanation
+   arrives underneath it. All of it sits above the shader canvas, which is
+   painted into this same box. */
+.detection {
+  position: absolute;
+  top: 15.7%;
+  right: 0;
+  bottom: 28.5%;
+  left: 72.2%;
+  z-index: 1;
+  border: 2px solid var(--detect);
+  opacity: 0;
+  transform: scale(1.06);
+  transform-origin: 70% 45%;
+  transition:
+    opacity 0.2s ease,
+    transform 0.28s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.detection-label {
+  position: absolute;
+  bottom: 100%;
+  left: -2px;
+  padding: 3px 6px 4px;
+  background: var(--detect);
+  color: #0a0a0a;
+  font: 400 11px/1 var(--mono);
+  white-space: nowrap;
+}
+/* Butts straight up against the box's bottom edge: 28.5% from the bottom is
+   where the box ends, so the two read as one piece of the model's output. It
+   sits outside the frame's clipping, so it can run past the photo's bottom. */
+.image-note {
+  position: absolute;
+  top: 71.5%;
+  right: 0;
+  left: 3%;
+  z-index: 1;
+  margin: 0;
+  padding: 11px 17px 12px;
+  background: var(--detect);
+  color: #0a0a0a;
+  font-size: 14.5px;
+  line-height: 1.45;
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 0.22s ease,
+    transform 0.28s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+/* The box reads first, then the caption it belongs to. Keyed off the wrapper
+   rather than the frame, since the caption now hangs outside it.
+   Scoped to where the button is absent, which is the exact complement of the
+   two queries that show it. Unscoped, the button sits inside the wrapper, so
+   hovering or focusing it would trigger the reveal it exists to control, and
+   the detection would already be up before the press. */
+@media (hover: hover) and (min-width: 601px) {
+  .project-images:hover .detection,
+  .project-images:focus-within .detection {
+    opacity: 1;
+    transform: none;
+  }
+  .project-images:hover .image-note,
+  .project-images:focus-within .image-note {
+    opacity: 1;
+    transform: none;
+    transition-delay: 0.1s;
+  }
+}
+.project-images .dither:focus-visible {
+  outline: 1px solid #6a6a6a;
+  outline-offset: 2px;
+}
+/* Without hover there is no way to ask for it, so it just shows. */
+@media (hover: none) {
+  .hover-hint {
+    display: none;
+  }
+  .detect-toggle {
+    display: block;
+  }
+}
+/* Tablet width and no hover: the button is still the overlay in the frame's
+   corner rather than the pill below it, so it sits on the photo. Filled in both
+   states there — an outline with no fill has the dithered frame reading through
+   it, and the label loses against the stipple whichever state it is in. */
+@media (hover: none) and (min-width: 601px) {
+  .detect-toggle,
+  .detect-toggle[aria-pressed="true"] {
+    background: var(--detect);
+    color: #0a0a0a;
+  }
+}
+.project-copy h2 {
+  margin: 0 0 15px;
+  font-size: 37px;
+  font-weight: 450;
+  letter-spacing: -1.2px;
+}
+.project-copy p {
+  font-size: 16px;
+  line-height: 1.7;
+  margin: 0 0 10px;
+  color: #d0d0d0;
+}
+.project-copy .project-description {
+  max-width: 460px;
+  color: var(--muted);
+  font-size: 15px;
+}
+.project-copy .project-role {
+  margin-bottom: 22px;
+  font-size: 15px;
+}
+.project-copy strong {
+  color: #d0d0d0;
+  font-weight: 500;
+}
+/* The current role runs the full width on top; the two before it share the
+   row underneath. */
+.experience-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-block: 1px solid var(--line);
+}
+.experience-card {
+  padding: 32px 0;
+}
+.experience-card:first-child {
+  grid-column: 1 / -1;
+  border-bottom: 1px solid var(--line);
+}
+/* The full-width card splits in two: the role on the left, what it is about
+   on the right. */
+.experience-card--featured {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 35px;
+  align-items: start;
+}
+/* A link card for the blog post, like the unfurl a chat app would show. */
+.link-preview {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.2s ease;
+}
+.link-preview:hover {
+  border-color: #6a6a6a;
+}
+.link-preview img {
+  display: block;
+  flex: none;
+  width: 190px;
+  height: auto;
+  border-radius: 2px;
+  background: #fff;
+}
+.link-preview-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.link-preview-title {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.link-preview-meta {
+  color: var(--muted);
+  font: 400 11px/1.3 var(--mono);
+}
+.experience-card:nth-child(2) {
+  border-right: 1px solid var(--line);
+  padding-right: 35px;
+}
+.experience-card:nth-child(3) {
+  padding-left: 35px;
+}
+.experience-title {
+  margin: 0;
+  font-weight: 450;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 22px;
+  letter-spacing: -0.5px;
+}
+.experience-subtitle {
+  display: block;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.experience-details {
+  margin: 20px 0 0;
+  color: #adadad;
+  font-size: 15px;
+  line-height: 1.8;
+}
+.current-projects,
+.past-projects {
+  padding: 40px 0;
+}
+.current-projects {
+  --panel-inset: clamp(24px, 4vw, 40px);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin: 36px calc(-1 * var(--panel-inset)) 16px;
+  padding: 44px var(--panel-inset);
+  border: 0;
+  border-radius: 24px;
+  background: #141414 url("assets/current-projects.png") center / cover no-repeat;
+}
+.current-projects::before {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.current-projects::before {
+  content: "";
+  z-index: -1;
+  background: rgb(20 20 20 / 76%);
+}
+.current-projects .project-list h3 {
+  font-size: 19px;
+}
+.current-projects .project-list p {
+  color: #dedede;
+  font-size: 16px;
+}
+.current-projects > h2,
+.past-projects > h2 {
+  margin: 0 0 26px;
+  font-size: 22px;
+  font-weight: 450;
+  letter-spacing: -0.5px;
+}
+.tools-page {
+  min-height: 100vh;
+  max-width: 760px;
+  padding-block: 48px 80px;
+}
+.tools-back {
+  color: var(--muted);
+  font-size: 13px;
+  transition: color 180ms ease;
+}
+.tools-back:hover {
+  color: var(--text);
+}
+.tools-page-header {
+  margin-bottom: 44px;
+}
+.tools-page h1 {
+  margin: 76px 0 12px;
+  font: 500 clamp(28px, 4vw, 36px)/1.2 var(--sans);
+  letter-spacing: -1.2px;
+}
+.tools-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.tools-grid {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.tool-card {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 20px;
+  padding: 26px 8px;
+  border-bottom: 1px solid var(--line);
+  transition: background-color 180ms ease;
+}
+.tool-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid #333333;
+  border-radius: 10px;
+  background: #181818;
+  color: #c8c8c8;
+}
+.tool-icon svg {
+  width: 24px;
+  height: 24px;
+}
+.tool-copy h2 {
+  margin: 0 0 6px;
+  font: 500 17px/1.4 var(--sans);
+  letter-spacing: -0.3px;
+}
+.tool-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.tool-action {
+  color: #969696;
+  font-size: 22px;
+  transition: color 180ms ease, transform 180ms ease;
+}
+.tool-card:hover,
+.tool-card:focus-visible {
+  background: #ffffff04;
+}
+.tool-card:hover .tool-action,
+.tool-card:focus-visible .tool-action {
+  color: var(--text);
+  transform: translate(2px, -2px);
+}
+@media (max-width: 600px) {
+  .tools-page {
+    padding-top: 28px;
+  }
+  .tools-page h1 {
+    margin-top: 56px;
+  }
+  .tool-card {
+    gap: 14px;
+    padding: 22px 0;
+  }
+}
+.project-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px 40px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.project-list > li {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.project-bullet {
+  position: relative;
+  display: block;
+  width: 44px;
+  height: 44px;
+  margin-top: -8px;
+  overflow: hidden;
+  border-radius: 50%;
+  pointer-events: none;
+  background: none;
+  opacity: 0;
+  mix-blend-mode: screen;
+}
+.project-bullet canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.project-bullet.is-textured {
+  opacity: 1;
+}
+.project-list h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 450;
+  line-height: 1.6;
+}
+.project-list time,
+.project-status {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.project-list time {
+  font-family: var(--mono);
+}
+.project-award {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid #dfbc6c55;
+  border-radius: 999px;
+  background: #dfbc6c0d;
+  color: #dfbc6c;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.project-award img {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+.project-list p {
+  max-width: 720px;
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.project-list .project-stack {
+  margin-top: 7px;
+  font-size: 12px;
+}
+.contact {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 62px;
+  align-items: center;
+  padding: 65px 0 80px;
+}
+.social-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.social-links a {
+  font-size: 18px;
+  line-height: 1.5;
+}
+.experience-subtitle a,
+.current-projects .project-list a,
+.social-links a:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.experience-subtitle a:hover,
+.current-projects .project-list a:hover,
+.social-links a:hover {
+  color: #dc6b9b;
+  text-decoration-color: #dc6b9b;
+}
+.last-read {
+  margin: 30px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.9;
+}
+.last-read cite {
+  color: #d0d0d0;
+  font-style: normal;
+}
+.life {
+  margin: 0;
+}
+#life {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 640 / 288;
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+.life figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.life-controls {
+  display: flex;
+  gap: 14px;
+}
+.life-controls button {
+  border: 0;
+  background: none;
+  padding: 5px 0;
+  font-size: 12px;
+}
+.life-controls button:hover {
+  color: #dc6b9b;
+}
+
+@media (min-width: 1648px) {
+  .hero {
+    margin-inline: auto;
+    padding-inline: 260px;
+  }
+}
+@media (max-width: 1100px) {
+  .hero {
+    padding-inline: 48px;
+  }
+  .hero-content {
+    gap: 38px;
+  }
+  .featured-project,
+  .contact {
+    gap: 38px;
+  }
+  .experience-title {
+    font-size: 19px;
+  }
+}
+/* Two columns stop paying for themselves here: the copy gets too narrow to
+   read well. The frame takes the full width and the writing follows under it,
+   which is already the source order. */
+@media (max-width: 999px) {
+  .featured-project {
+    grid-template-columns: 1fr;
+    gap: 34px;
+  }
+  /* The measure was there to stop the copy running the full width of a shared
+     row. Stacked, nothing shares it, so the paragraphs use the column. */
+  .project-copy .project-description {
+    max-width: none;
+  }
+}
+@media (max-width: 800px) {
+  .project-list {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .hero {
+    margin-inline: 14px;
+    padding-inline: 30px;
+    border-radius: 0 0 45px 45px;
+  }
+  .greeting {
+    font-size: 44px;
+  }
+  .studies {
+    font-size: 22px;
+  }
+  .hero-content {
+    gap: 23px;
+    min-height: 395px;
+    padding: 60px 0;
+  }
+  main {
+    width: calc(100% - 88px);
+  }
+  .work {
+    padding-block: 45px;
+  }
+  .featured-project,
+  .contact {
+    gap: 30px;
+  }
+  .project-copy h2 {
+    font-size: 30px;
+  }
+  .project-copy p {
+    font-size: 14px;
+  }
+  .project-copy .project-description {
+    font-size: 13px;
+  }
+  .experience-card:nth-child(2) {
+    padding-right: 23px;
+  }
+  .experience-card:nth-child(3) {
+    padding-left: 23px;
+  }
+  .experience-title {
+    font-size: 18px;
+  }
+  .experience-subtitle {
+    font-size: 13px;
+  }
+  .contact {
+    padding: 45px 0 60px;
+  }
+  .life figcaption,
+  .life-controls button {
+    font-size: 11px;
+  }
+}
+/* No drift at these widths (see the matching query in script.js), so the photo
+   needs no overhang to travel into: the element is exactly the hero box, and
+   `cover` then zooms the photo just far enough to fill the hero's height,
+   taking whatever width that needs and cropping the sides that fall outside. */
+@media (max-width: 990px), (hover: none) {
+  .hero .hero-photo {
+    inset: 0;
+    transform: none;
+    /* Nothing animates it here, so promoting it to its own layer buys nothing
+       and costs a compositing path that some mobile browsers get wrong. */
+    will-change: auto;
+  }
+  .hero .hero-photo img {
+    object-position: 50% 50%;
+  }
+}
+@media (max-width: 600px) {
+  .hero {
+    margin-inline: 12px;
+    padding-inline: 24px;
+    border-radius: 0 0 38px 38px;
+  }
+  .greeting {
+    font-size: clamp(40px, 10vw, 52px);
+    letter-spacing: -1.5px;
+  }
+  .studies {
+    font-size: 22px;
+  }
+  /* On a phone the hero is only as tall as its copy. The landscape photo is
+     scaled up to cover that shorter box, cropping off the sides, so it stays
+     centered on the frame rather than stretched across it. */
+  .hero {
+    display: flex;
+    align-items: center;
+  }
+  .hero-content {
+    flex: 1;
+    gap: 20px;
+    min-height: 0;
+    padding: 48px 0;
+  }
+  .hero .hero-photo img {
+    object-position: 50% 50%;
+  }
+  /* No margin left of the frame to hang it in at this width. */
+  .hover-hint {
+    display: none;
+  }
+  /* Also shown by width, not just by `hover: none` — a narrowed desktop window
+     still reports a hover-capable pointer, and the button belongs here too.
+     In flow below the photo rather than over it, so it adds its own height to
+     the column and pushes everything after it down. */
+  .detect-toggle {
+    display: block;
+    position: static;
+    width: fit-content;
+    margin: 12px 0 0 auto;
+  }
+  .image-note {
+    padding: 11px 13px 12px;
+    font-size: 12.5px;
+  }
+  /* The desktop line break costs a whole line at this width. */
+  .studies br {
+    display: none;
+  }
+  /* The bottom is pinned flush to the hero so the foot of the photo meets the
+     foot of the container; `cover` is height-driven at this box aspect, so the
+     image fills the element vertically and that edge lands exactly on it. Only
+     the top carries overhang. The horizontal pair widens the element without
+     changing the visible crop, since the hero clips back to the same window. */
+  .hero .hero-photo {
+    top: -40px;
+    right: -60px;
+    bottom: 0;
+    left: -60px;
+    /* As above: no drift at this width, so no layer promotion. */
+    will-change: auto;
+  }
+  main {
+    width: calc(100% - 56px);
+  }
+  .work {
+    padding-block: 39px;
+  }
+  .featured-project {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .project-copy h2 {
+    font-size: 34px;
+  }
+  .project-copy p {
+    font-size: 15px;
+  }
+  .project-copy .project-description {
+    max-width: none;
+    font-size: 14px;
+  }
+  .experience-grid {
+    grid-template-columns: 1fr;
+  }
+  .experience-card,
+  .experience-card:nth-child(n) {
+    padding: 25px 0;
+  }
+  .experience-card:nth-child(2) {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .experience-card--featured {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .link-preview img {
+    width: 130px;
+  }
+  .experience-title {
+    font-size: 22px;
+  }
+  .experience-subtitle {
+    font-size: 14px;
+  }
+  .contact {
+    grid-template-columns: 1fr;
+    gap: 35px;
+    padding: 38px 0 45px;
+  }
+  .life figcaption,
+  .life-controls button {
+    font-size: 12px;
+  }
+}
+/* Now it really is too narrow for a caption inset against the box's bottom
+   edge: it becomes a strip along the bottom of the frame instead. */
+@media (max-width: 499px) {
+  .image-note {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .hover-hint {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  html,
+  body,
+  body *,
+  #life {
+    cursor:
+      url("assets/cursor.svg?v=4") 4 4,
+      auto;
+  }
+}
+
+.current-projects .project-list > li {
+  display: block;
+}
+.current-projects .project-list {
+  row-gap: 18px;
+}
+
+.current-projects > h2 {
+  font-size: 24px;
+}
+
+/* Blog: list on the homepage, posts rendered from blog/*.md on post.html. */
+.blog {
+  padding: 40px 0;
+}
+.blog > h2 {
+  margin: 0 0 18px;
+  font-size: 22px;
+  font-weight: 450;
+  letter-spacing: -0.5px;
+}
+.blog-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.blog-card {
+  display: block;
+  padding: 22px 8px;
+  border-bottom: 1px solid var(--line);
+  transition: background-color 180ms ease;
+}
+.blog-card:hover,
+.blog-card:focus-visible {
+  background: #ffffff04;
+}
+.blog-card h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 14px;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 450;
+  line-height: 1.6;
+}
+.blog-card:hover h3 {
+  color: #dc6b9b;
+}
+.blog-card time,
+.post-date {
+  color: var(--muted);
+  font: 400 12px var(--mono);
+}
+.blog-card p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.post-page h1 {
+  margin-bottom: 10px;
+}
+.post-body {
+  font-size: 16px;
+  line-height: 1.8;
+  overflow-wrap: break-word;
+}
+.post-body h2,
+.post-body h3 {
+  margin: 2em 0 0.6em;
+  font-weight: 500;
+  letter-spacing: -0.4px;
+  line-height: 1.3;
+}
+.post-body h2 {
+  font-size: 22px;
+}
+.post-body h3 {
+  font-size: 18px;
+}
+.post-body p,
+.post-body ul,
+.post-body ol {
+  margin: 0 0 1.2em;
+  color: #d6d6d6;
+}
+.post-body a {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.post-body a:hover {
+  color: #dc6b9b;
+}
+.post-body blockquote {
+  margin: 0 0 1.2em;
+  padding-left: 16px;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+}
+.post-body blockquote p {
+  color: inherit;
+}
+.post-body code {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #ffffff0d;
+  font: 0.88em var(--mono);
+}
+.post-body pre {
+  margin: 0 0 1.2em;
+  padding: 16px 18px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #111111;
+  line-height: 1.6;
+}
+.post-body pre code {
+  padding: 0;
+  background: none;
+}
+.post-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+.post-body hr {
+  margin: 2em 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+/* Post sidebar: the back link and the post's contents, sticky at the left
+   edge on wide screens. On narrow ones the back link sticks to the top and the
+   contents collapse into a box under the title. Built in blog.js. */
+.post-main {
+  min-width: 0;
+}
+.post-back {
+  display: inline-block;
+}
+.post-toc-details > summary {
+  color: var(--muted);
+  font: 400 12px var(--mono);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  cursor: pointer;
+  list-style: none;
+}
+.post-toc-details > summary::-webkit-details-marker {
+  display: none;
+}
+.post-toc-list {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  border-left: 1px solid var(--line);
+}
+.post-toc-list li.is-sub a {
+  padding-left: 28px;
+  font-size: 13px;
+}
+.post-toc-list a {
+  display: block;
+  margin-left: -1px;
+  padding: 6px 0 6px 16px;
+  border-left: 1px solid transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+  transition: color 180ms ease, border-color 180ms ease;
+}
+.post-toc-list a:hover {
+  color: var(--text);
+}
+.post-toc-list a.is-active {
+  border-left-color: #dc6b9b;
+  color: var(--text);
+}
+.post-body h2,
+.post-body h3 {
+  scroll-margin-top: 32px;
+}
+@media (min-width: 1000px) {
+  /* Three columns keep the post centred on the page while the sidebar sits
+     out at the left edge. */
+  .post-page {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(0, 760px) minmax(0, 1fr);
+    gap: 56px;
+    max-width: none;
+    width: calc(100% - 96px);
+  }
+  .post-toc {
+    position: sticky;
+    top: 48px;
+    align-self: start;
+    max-width: 240px;
+    max-height: calc(100vh - 96px);
+    overflow-y: auto;
+  }
+  .post-toc-details {
+    margin-top: 76px;
+  }
+  .post-toc-details > summary {
+    pointer-events: none;
+  }
+  .post-page .tools-page-header h1 {
+    margin-top: 72px;
+  }
+}
+@media (max-width: 999px) {
+  .post-page {
+    display: flex;
+    flex-direction: column;
+    padding-top: 0;
+  }
+  .post-toc,
+  .post-main {
+    display: contents;
+  }
+  .post-back {
+    order: -1;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    align-self: stretch;
+    margin: 0;
+    padding: 20px 0 14px;
+    background: rgb(10 10 10 / 82%);
+    /* Run the bar out to the screen edges past the page gutters. */
+    box-shadow: 0 0 0 100vmax rgb(10 10 10 / 82%);
+    clip-path: inset(0 -100vmax);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  .post-page .tools-page-header {
+    order: 0;
+    margin-bottom: 28px;
+  }
+  .post-page .tools-page-header h1 {
+    margin-top: 40px;
+  }
+  .post-toc-details {
+    order: 1;
+    margin-bottom: 36px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #ffffff04;
+  }
+  .post-body {
+    order: 2;
+  }
+  .post-toc-details > summary::after {
+    content: " +";
+  }
+  .post-toc-details[open] > summary::after {
+    content: " −";
+  }
+}
+
+/* Team cards, built from a "## Team" section in a post. */
+.post-team {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin: 0 0 1.6em;
+}
+.post-team-group {
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff04;
+}
+.post-body .post-team-name {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font: 400 12px var(--mono);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.post-body .post-team-people {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.post-team-people li {
+  display: grid;
+  line-height: 1.4;
+}
+.post-team-person {
+  color: var(--text);
+  font-size: 16px;
+}
+.post-team-role {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Link previews (link-preview.js): a card for a link on its own line, and a
+   floating preview for outbound links inside text. */
+.post-body .link-card {
+  display: flex;
+  align-items: stretch;
+  margin: 0 0 1.2em;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff04;
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease;
+}
+.post-body .link-card:hover,
+.post-body .link-card:focus-visible {
+  border-color: #dc6b9b80;
+  background: #ffffff08;
+  color: var(--text);
+  transform: translateY(-1px);
+}
+.post-body .link-card:hover .lp-title {
+  color: #dc6b9b;
+}
+.lp-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 16px 18px;
+}
+.lp-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font: 400 12px/1.4 var(--mono);
+}
+.lp-icon {
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+.lp-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.lp-dot {
+  opacity: 0.6;
+}
+.lp-title {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+  transition: color 180ms ease;
+}
+.lp-desc {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.lp-image {
+  flex: 0 0 min(34%, 210px);
+  align-self: center;
+  aspect-ratio: 2 / 1;
+  margin-right: 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  border-left: 1px solid var(--line);
+  background: #111111;
+}
+.post-body .lp-image img,
+.lp-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0;
+}
+@media (max-width: 560px) {
+  .post-body .link-card {
+    flex-direction: column-reverse;
+  }
+  .lp-image {
+    flex-basis: auto;
+    align-self: stretch;
+    margin: 0;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+  }
+}
+
+.post-body a.has-preview {
+  text-decoration-style: dotted;
+}
+.link-popover {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  flex-direction: column-reverse;
+  width: 320px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgb(17 17 17 / 92%);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 50%);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px) scale(0.98);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+.link-popover[data-side="above"] {
+  transform: translateY(-4px) scale(0.98);
+}
+.link-popover.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+.link-popover .lp-text {
+  padding: 12px 14px 14px;
+}
+.link-popover .lp-title {
+  font-size: 14px;
+}
+.link-popover .lp-desc {
+  font-size: 13px;
+}
+.link-popover .lp-image {
+  flex: none;
+  align-self: stretch;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .post-body .link-card,
+  .link-popover {
+    transition: none;
+    transform: none;
+  }
+}

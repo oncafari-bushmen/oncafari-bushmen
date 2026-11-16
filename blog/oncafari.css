@@ -1,0 +1,41 @@
+/* Styles for the Onçafari post: just the table, captions and the phone shot. */
+.post-body img + em,
+.post-body p > em:only-child {
+  display: block;
+  margin-top: -0.4em;
+  color: var(--muted);
+  font-size: 13px;
+  font-style: normal;
+  line-height: 1.55;
+}
+.post-body table {
+  width: 100%;
+  margin: 0 0 1.6em;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.post-body th,
+.post-body td {
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--line);
+  color: #d6d6d6;
+  text-align: left;
+  vertical-align: top;
+}
+.post-body th {
+  color: var(--muted);
+  font-weight: 450;
+}
+.post-body td:last-child,
+.post-body th:last-child {
+  padding-right: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+.post-body img.oc-phone {
+  display: block;
+  width: 260px;
+  margin: 0 auto 1.2em;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
